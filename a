@@ -80,7 +80,7 @@ local writebutton = filetab:Button({
   	Text = "Write File",
     	Callback = function()
    		writefile(getgenv().StratName .. '.txt',
-    			"local api = loadstring(game:HttpGet('https://raw.githubusercontent.com/Hysterically-C/shittytittyapishit/refs/heads/main/dogshit'))()\n\n" .. 
+    			"local api = loadstring(game:HttpGet('https://raw.githubusercontent.com/ovoch228/shitty-x/refs/heads/main/rtd/api'))()\n\n" .. 
     			`api:Loadout({plrtowers})\n` ..
     			`api:Map('{map}', {modifiers})\n\n` ..
     			"api:Start()\n\n" ..
@@ -145,7 +145,7 @@ end
 local lasttime = ostime()
 task.spawn(function()
 	while true do
-		timer = (ostime() - lasttime) * 3
+		timer = (ostime() - lasttime) * 2
 		taskwait(0.25)
 	end	
 end)
@@ -198,11 +198,30 @@ hooks["place"] = hookfunction(towers.PlaceTower.invoke, function(towerdata)
 end)
 
 hooks["upgrade"] = hookfunction(towers.UpgradeTower.invoke, function(index)
-	if checkcaller() then return hooks["upgrade"](index) end
+    -- Standard check to ignore internal calls
+    if checkcaller() then return hooks["upgrade"](index) end
 
-	updatelog("Upgraded Tower " .. index)
-	appendfile(getgenv().StratName..".txt", `\t api:Upgrade({index}, {timer}, {wave})\n`)
-	return hooks["upgrade"](index)
+    -- 1. Call the original function and capture the result
+    local result = hooks["upgrade"](index)
+
+    -- 2. Check if the server returned a table and if it was successful
+    if typeof(result) == "table" and result.Success then
+        
+        -- Capture the new level
+        local newLevel = result.Level
+        
+        updatelog("Upgraded Tower " .. index .. " to Level " .. tostring(newLevel))
+        
+        -- 3. Write to file with the NEW signature: api:Upgrade(index, LEVEL, timer, wave)
+        appendfile(getgenv().StratName..".txt", `\t api:Upgrade({index}, {newLevel}, {timer}, {wave})\n`)
+        
+    else
+        -- Optional: Log failure to console so you know why it didn't record
+        local reason = (typeof(result) == "table" and result.FailReason) or "Unknown"
+        updatelog("Upgrade Failed: " .. tostring(reason))
+    end
+
+    return result
 end)
 
 hooks["target"] = hookfunction(towers.SetTargetMode.send, function(towerdata)
@@ -220,5 +239,3 @@ hooks["sell"] = hookfunction(towers.SellTower.invoke, function(index)
 	appendfile(getgenv().StratName..".txt", `\t api:Sell({index}, {timer}, {wave}) \n`)
 	return hooks["sell"](index)
 end)
-
-
